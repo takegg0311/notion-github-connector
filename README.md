@@ -40,12 +40,17 @@ classic PAT を使う場合は `repo` スコープが必要です。
 |---|---|
 | Name | title |
 | Number | number |
-| Status | select |
+| Status | status |
 | URL | url |
 | Created | date |
 | Updated | date |
 | Repository | relation → RepositoryDB |
 | GitHub ID | rich_text |
+
+`Status` は Notion の **status 型**にしてください（select 型ではありません）。status 型は API から選択肢を追加できないため、同期前に Notion 上で次の名前のオプションを手動で用意してください。
+
+- IssueDB: `Open` / `Closed` / `Closed as not planned` / `Closed as duplicate`
+- PullRequestDB: `Open` / `Merged` / `Closed`
 
 ### PullRequestDB
 

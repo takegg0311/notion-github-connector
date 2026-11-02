@@ -25,7 +25,7 @@ REPOSITORY_SCHEMA: dict[str, str] = {
 ISSUE_SCHEMA: dict[str, str] = {
     "Name": "title",
     "Number": "number",
-    "Status": "select",
+    "Status": "status",
     "URL": "url",
     "Created": "date",
     "Updated": "date",

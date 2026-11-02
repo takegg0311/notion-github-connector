@@ -85,12 +85,12 @@ def read_number(page: dict[str, Any]) -> int | None:
     return prop.get("number")
 
 
-def read_select(page: dict[str, Any]) -> str | None:
+def read_status(page: dict[str, Any]) -> str | None:
     prop = page.get("properties", {}).get("Status", {})
-    if prop.get("type") != "select":
+    if prop.get("type") != "status":
         return None
-    select = prop.get("select")
-    return select.get("name") if select else None
+    status = prop.get("status")
+    return status.get("name") if status else None
 
 
 def read_url(page: dict[str, Any]) -> str | None:
@@ -128,7 +128,7 @@ def build_issue_properties(
     return {
         "Name": {"title": [{"text": {"content": record.title}}]},
         "Number": {"number": record.number},
-        "Status": {"select": {"name": status}},
+        "Status": {"status": {"name": status}},
         "URL": {"url": record.url},
         "Created": {"date": {"start": record.created_at}},
         "Updated": {"date": {"start": record.updated_at}},
@@ -146,7 +146,7 @@ def build_pull_request_properties(
     return {
         "Name": {"title": [{"text": {"content": record.title}}]},
         "Number": {"number": record.number},
-        "Status": {"select": {"name": status}},
+        "Status": {"status": {"name": status}},
         "URL": {"url": record.url},
         "Created": {"date": {"start": record.created_at}},
         "Updated": {"date": {"start": record.updated_at}},
@@ -185,7 +185,7 @@ def issue_or_pr_needs_update(
         return True
     if read_number(page) != desired["Number"]["number"]:
         return True
-    if read_select(page) != desired["Status"]["select"]["name"]:
+    if read_status(page) != desired["Status"]["status"]["name"]:
         return True
     if read_url(page) != desired["URL"]["url"]:
         return True

@@ -54,7 +54,7 @@ def notion_properties(
     if number is not None:
         props["Number"] = {"type": "number", "number": number}
     if status is not None:
-        props["Status"] = {"type": "select", "select": {"name": status}}
+        props["Status"] = {"type": "status", "status": {"name": status}}
     if repository_ids is not None:
         props["Repository"] = {
             "type": "relation",
@@ -83,7 +83,7 @@ def schema_properties(context: str) -> dict[str, Any]:
         return {
             **schema_properties("repo"),
             "Number": {"type": "number"},
-            "Status": {"type": "select"},
+            "Status": {"type": "status"},
             "Repository": {
                 "type": "relation",
                 "relation": {"data_source_id": "repo-source"},
@@ -257,7 +257,7 @@ class NotionState:
             elif key == "Number":
                 props[key] = {"type": "number", "number": value["number"]}
             elif key == "Status":
-                props[key] = {"type": "select", "select": value["select"]}
+                props[key] = {"type": "status", "status": value["status"]}
             elif key == "URL":
                 props[key] = {"type": "url", "url": value["url"]}
             elif key in ("Created", "Updated"):
@@ -560,7 +560,7 @@ def test_schema_validation_wrong_type(settings):
     props = schema_properties("issue")
     props["Status"] = {"type": "rich_text"}
     notion.request = lambda method, path, **kwargs: {"properties": props}  # type: ignore[method-assign]
-    with pytest.raises(ValueError, match="IssueDB: property Status must be select"):
+    with pytest.raises(ValueError, match="IssueDB: property Status must be status"):
         notion.validate_database(
             "IssueDB",
             settings.issue_database_id,
