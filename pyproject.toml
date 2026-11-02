@@ -1,0 +1,25 @@
+[project]
+name = "notion-github-connector"
+version = "0.1.0"
+description = "Sync GitHub repositories, issues, and pull requests to Notion databases"
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.28,<1", "python-dotenv>=1,<2"]
+
+[project.scripts]
+github-notion-sync = "github_notion_sync.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/github_notion_sync"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
