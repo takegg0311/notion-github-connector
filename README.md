@@ -73,12 +73,46 @@ IssueDB と同じプロパティに、次を追加します。
 | `NOTION_REPOSITORY_DATABASE_ID` | RepositoryDB の ID |
 | `NOTION_ISSUE_DATABASE_ID` | IssueDB の ID |
 | `NOTION_PULL_REQUEST_DATABASE_ID` | PullRequestDB の ID |
+| `TIMEZONE` | Ofelia のスケジュール用タイムゾーン（既定 `Asia/Tokyo`。同期アプリは未使用） |
+| `OFELIA_SCHEDULE` | Ofelia の cron（空なら `@hourly`） |
 
 ## 手動実行
 
 ```bash
 docker compose run --rm sync
 ```
+
+## 定期実行
+
+[Ofelia](https://github.com/mcuadros/ofelia) が常駐し、既定では毎時 `sync` コンテナを起動してバッチを実行します。
+
+```bash
+cp .env.example .env   # トークンと DB ID を設定
+docker compose up -d
+```
+
+`up` の時点で compose が `sync` を1回起動するため、初回もバッチが走ります（`up --build` も同様）。実行が終わった `sync` は停止したまま（`exited`）で、次のスケジュールまで常駐しません。
+
+停止・削除:
+
+```bash
+docker compose down
+```
+
+スケジュールは `.env` の `OFELIA_SCHEDULE` で変更します（未設定なら `@hourly`）。Ofelia 0.3.x では **秒から始める 6 フィールド**の cron 式を使います（毎時0分は `0 0 * * * *`）。`@every 1m` も指定できます。5 フィールドだけ書くとエラーにならず、左に 1 つずつずれて解釈されます（先頭が秒=0、末尾の曜日は `*`）。例: `0 * * * *` は毎分、`0 3 * * *` は毎時3分（日次3:00のつもりだと意図とずれます）。ラベルは Ofelia 起動時に一度だけ読み込まれるため、変更後は `docker compose up -d` で `ofelia` を再作成してください。タイムゾーンは `TIMEZONE`（既定 `Asia/Tokyo`）を Ofelia の `TZ` に渡します。同期アプリ自体は `TIMEZONE` を使いません。
+
+ログ:
+
+```bash
+docker compose logs ofelia
+docker compose logs sync
+```
+
+`ofelia` は `/var/run/docker.sock` をマウントして Docker API でコンテナを起動します。`:ro` でも API 経由では実質ホストの root 相当の操作が可能です。信頼できる環境でのみ利用してください。
+
+バッチ実行中に `docker compose up -d --build`（`sync` の再作成）や `docker compose down` を行うと、処理は途中で止まります。同期は冪等なので、中断した分は次の実行で回復します。操作前に `docker compose ps` で `sync` が実行中でないことを確認してください。
+
+手動実行（`docker compose run --rm sync`）は、定期実行とは別コンテナのため Ofelia の `no-overlap` 対象外です。定期実行と重なると、同じ `GitHub ID` のページが重複作成され、自動では消えません。解消方法は「同時実行について」を参照してください。手動実行の前に `docker compose ps` で実行中でないことを確かめてください。
 
 ## 同期の挙動（概要）
 
