@@ -282,6 +282,10 @@ class SyncServiceImpl:
         repo_index = index_pages_by_github_id(repo_pages, repo_context.name)
         issue_index = index_pages_by_github_id(issue_pages, issue_context.name)
         pr_index = index_pages_by_github_id(pr_pages, pr_context.name)
+        for github_id, page in repo_index.items():
+            state.repo_page_by_github_id[github_id] = page["id"]
+        for github_id, page in issue_index.items():
+            state.issue_page_by_github_id[github_id] = page["id"]
 
         repo_stats = self._sync_repositories(repo_context, snapshot.repositories, repo_index, state)
         issue_stats = self._sync_issues(issue_context, snapshot, issue_index, state)

@@ -184,6 +184,8 @@ class NotionState:
         self.next_id = 1
         self.post_pages_attempts = 0
         self.fail_first_post_5xx = False
+        self.patched_page_ids: list[str] = []
+        self.fail_patch_page_ids: set[str] = set()
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path.removeprefix("/v1/")
@@ -231,8 +233,11 @@ class NotionState:
             self.pages[source].append(page)
             return httpx.Response(200, json=page)
         if path.startswith("pages/") and request.method == "PATCH":
-            self.patch_calls += 1
             page_id = path.split("/", 1)[1]
+            if page_id in self.fail_patch_page_ids:
+                return httpx.Response(500)
+            self.patch_calls += 1
+            self.patched_page_ids.append(page_id)
             payload = json.loads(request.content)
             for pages in self.pages.values():
                 for page in pages:
@@ -296,6 +301,19 @@ def default_github_handler(request: httpx.Request) -> httpx.Response:
     if "issues(" in query:
         return httpx.Response(200, json=github_issues_response())
     return httpx.Response(200, json=github_prs_response())
+
+
+def test_full_sync_unchanged_on_second_run(settings):
+    state = NotionState()
+    service, notion_client, github_client = build_clients(settings, state, default_github_handler)
+    assert service.run() is False
+    assert state.post_calls == 3
+    assert state.patch_calls == 0
+    assert service.run() is False
+    assert state.post_calls == 3
+    assert state.patch_calls == 0
+    notion_client.close()
+    github_client.close()
 
 
 def test_full_sync_creates_and_links(settings):
@@ -421,6 +439,61 @@ def test_duplicate_github_id_warning(settings, caplog):
         service.run()
     assert any("duplicate GitHub ID" in record.message for record in caplog.records)
     assert state.patch_calls == 1
+    assert state.patched_page_ids == ["old"]
+    new_page = next(page for page in state.pages["repo-source"] if page["id"] == "new")
+    assert new_page["properties"]["Name"]["title"][0]["plain_text"] == "new"
+    notion_client.close()
+    github_client.close()
+
+
+def test_issue_update_failure_keeps_pr_issue_relation(settings):
+    state = NotionState()
+    repo_page = {
+        "object": "page",
+        "id": "repo-page",
+        "created_time": "2026-01-01T00:00:00Z",
+        "properties": notion_properties(
+            title="repo",
+            url="https://github.com/owner/repo",
+            github_id="REPO_GH",
+        ),
+    }
+    issue_page = {
+        "object": "page",
+        "id": "issue-page",
+        "created_time": "2026-01-01T00:00:00Z",
+        "properties": notion_properties(
+            title="stale title",
+            number=3,
+            status="Open",
+            url="https://github.com/owner/repo/issues/3",
+            github_id="ISSUE_GH",
+            repository_ids=["repo-page"],
+        ),
+    }
+    pr_page = {
+        "object": "page",
+        "id": "pr-page",
+        "created_time": "2026-01-01T00:00:00Z",
+        "properties": notion_properties(
+            title="PR title",
+            number=4,
+            status="Open",
+            url="https://github.com/owner/repo/pull/4",
+            github_id="PR_GH",
+            repository_ids=["repo-page"],
+            issue_ids=["issue-page"],
+        ),
+    }
+    state.pages["repo-source"] = [repo_page]
+    state.pages["issue-source"] = [issue_page]
+    state.pages["pr-source"] = [pr_page]
+    state.fail_patch_page_ids = {"issue-page"}
+    service, notion_client, github_client = build_clients(settings, state, default_github_handler)
+    assert service.run() is True
+    assert "pr-page" not in state.patched_page_ids
+    pr_issues = pr_page["properties"]["Issues"]["relation"]
+    assert [item["id"] for item in pr_issues] == ["issue-page"]
     notion_client.close()
     github_client.close()
 
